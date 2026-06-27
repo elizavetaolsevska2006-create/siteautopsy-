@@ -10,22 +10,25 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Explicitly serve index.html for root
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", hasKey: !!ANTHROPIC_API_KEY });
 });
 
-// Proxy endpoint — клиент вызывает нас, мы вызываем Anthropic
+// Proxy endpoint
 app.post("/api/audit", async (req, res) => {
   if (!ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: "API key not configured on server" });
   }
-
   const { system, prompt } = req.body;
   if (!system || !prompt) {
     return res.status(400).json({ error: "Missing system or prompt" });
   }
-
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -41,14 +44,11 @@ app.post("/api/audit", async (req, res) => {
         messages: [{ role: "user", content: prompt }],
       }),
     });
-
     const data = await response.json();
-
     if (data.error) {
       console.error("Anthropic error:", data.error);
       return res.status(400).json({ error: data.error.message });
     }
-
     res.json(data);
   } catch (err) {
     console.error("Server error:", err.message);
@@ -56,17 +56,15 @@ app.post("/api/audit", async (req, res) => {
   }
 });
 
-// Chat endpoint for AI consultant bot
+// Chat endpoint
 app.post("/api/chat", async (req, res) => {
   if (!ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: "API key not configured on server" });
   }
-
   const { system, messages } = req.body;
   if (!system || !messages) {
     return res.status(400).json({ error: "Missing system or messages" });
   }
-
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -82,13 +80,10 @@ app.post("/api/chat", async (req, res) => {
         messages,
       }),
     });
-
     const data = await response.json();
-
     if (data.error) {
       return res.status(400).json({ error: data.error.message });
     }
-
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
